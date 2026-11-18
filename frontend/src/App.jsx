@@ -1,9 +1,17 @@
-import React from "react";
+import { useState } from "react";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
 const App = () => {
+  const [isLogin, setIsLogin] = useState(true);
+
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Ứng dụng E-commerce đang chạy thành công!</h1>
+    <div>
+      {isLogin ? (
+        <LoginPage onSwitchToRegister={() => setIsLogin(false)} />
+      ) : (
+        <RegisterPage onSwitchToLogin={() => setIsLogin(true)} />
+      )}
     </div>
   );
 };
