@@ -1,9 +1,11 @@
-const App = () => {
+import LoginPage from "./pages/LoginPage";
+
+function App() {
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Ứng dụng E-commerce đang chạy thành công!</h1>
+    <div>
+      <LoginPage />
     </div>
   );
-};
+}
 
 export default App;
