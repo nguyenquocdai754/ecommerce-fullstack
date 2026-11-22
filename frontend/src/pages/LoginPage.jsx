@@ -1,17 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Thêm hook điều hướng
 import { loginUser } from "../services/authService";
 
 const LoginPage = ({ onSwitchToRegister }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate(); // Khởi tạo navigate
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
     setLoading(true);
 
     try {
@@ -24,11 +24,19 @@ const LoginPage = ({ onSwitchToRegister }) => {
       if (token) {
         localStorage.setItem("token", token);
       }
+
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
+        // Lưu tên người dùng để hiển thị ra lời chào ở trang chủ
+        const userName = user.username || user.name || "Độc giả";
+        localStorage.setItem("username", userName);
       }
 
-      setSuccess("Đăng nhập thành công!");
+      alert("Đăng nhập thành công!");
+
+      // Chuyển hướng về trang chủ và làm mới lại ứng dụng để cập nhật giao diện
+      navigate("/");
+      window.location.reload();
     } catch (err) {
       const message =
         err.response?.data?.message ||
@@ -48,9 +56,14 @@ const LoginPage = ({ onSwitchToRegister }) => {
         border: "1px solid #ddd",
         borderRadius: "8px",
         fontFamily: "sans-serif",
+        backgroundColor: "#fff",
       }}
     >
-      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Đăng Nhập</h2>
+      <h2
+        style={{ textAlign: "center", marginBottom: "20px", color: "#2f3e30" }}
+      >
+        📖 Đăng Nhập An Nhiên
+      </h2>
 
       {error && (
         <div
@@ -64,21 +77,6 @@ const LoginPage = ({ onSwitchToRegister }) => {
           }}
         >
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div
-          style={{
-            padding: "10px",
-            marginBottom: "15px",
-            backgroundColor: "#e6ffe6",
-            color: "#006600",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          {success}
         </div>
       )}
 
@@ -141,13 +139,14 @@ const LoginPage = ({ onSwitchToRegister }) => {
           style={{
             width: "100%",
             padding: "10px",
-            backgroundColor: loading ? "#999" : "#007bff",
+            backgroundColor: loading ? "#999" : "#3b4d3c",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
             fontSize: "16px",
             cursor: loading ? "not-allowed" : "pointer",
             marginBottom: "15px",
+            fontWeight: "600",
           }}
         >
           {loading ? "Đang xử lý..." : "Đăng Nhập"}
@@ -162,11 +161,12 @@ const LoginPage = ({ onSwitchToRegister }) => {
           style={{
             background: "none",
             border: "none",
-            color: "#007bff",
+            color: "#3b4d3c",
             cursor: "pointer",
             textDecoration: "underline",
             padding: 0,
             fontSize: "14px",
+            fontWeight: "600",
           }}
         >
           Đăng ký ngay

@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import RegisterPage from "./pages/RegisterPage"; // Nếu bạn đã tạo trang đăng ký
 
-const App = () => {
-  const [isLogin, setIsLogin] = useState(true);
+const App = () => (
+  <BrowserRouter>
+    <Routes>
+      {/* Trang chủ Tiệm Sách An Nhiên hiển thị đầu tiên khi truy cập http://localhost:5173 */}
+      <Route path="/" element={<HomePage />} />
 
-  return (
-    <div>
-      {isLogin ? (
-        <LoginPage onSwitchToRegister={() => setIsLogin(false)} />
-      ) : (
-        <RegisterPage onSwitchToLogin={() => setIsLogin(true)} />
-      )}
-    </div>
-  );
-};
+      {/* Trang đăng nhập & đăng ký */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+    </Routes>
+  </BrowserRouter>
+);
 
 export default App;
