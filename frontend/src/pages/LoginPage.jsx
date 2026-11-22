@@ -1,178 +1,177 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Thêm hook điều hướng
+import { Link, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/authService";
 
-const LoginPage = ({ onSwitchToRegister }) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const LoginPage = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate(); // Khởi tạo navigate
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleChange = (event) => {
+    setFormData({ ...formData, [event.target.name]: event.target.value });
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const response = await loginUser({ email, password });
-      const resultData = response.data || response;
+      const result = await loginUser(formData);
+      const { accessToken, expiresIn, user } = result.data;
+      const username =
+        user.full_name ||
+        user.fullName ||
+        user.username ||
+        user.email?.split("@")[0] ||
+        "Độc giả";
 
-      const token = resultData.data?.accessToken || resultData.accessToken;
-      const user = resultData.data?.user || resultData.user;
-
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-        // Lưu tên người dùng để hiển thị ra lời chào ở trang chủ
-        const userName = user.username || user.name || "Độc giả";
-        localStorage.setItem("username", userName);
-      }
-
-      alert("Đăng nhập thành công!");
-
-      // Chuyển hướng về trang chủ và làm mới lại ứng dụng để cập nhật giao diện
+      sessionStorage.setItem("token", accessToken);
+      sessionStorage.setItem(
+        "expiresAt",
+        String(Date.now() + expiresIn * 1000),
+      );
+      sessionStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("username", username);
       navigate("/");
-      window.location.reload();
     } catch (err) {
-      const message =
+      setError(
         err.response?.data?.message ||
-        "Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!";
-      setError(message);
+          "Đăng nhập thất bại. Kiểm tra kết nối máy chủ và thử lại.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
+    <main
       style={{
-        maxWidth: "400px",
-        margin: "60px auto",
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
         padding: "24px",
-        border: "1px solid #ddd",
-        borderRadius: "8px",
-        fontFamily: "sans-serif",
-        backgroundColor: "#fff",
+        backgroundColor: "#f9f8f6",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
-      <h2
-        style={{ textAlign: "center", marginBottom: "20px", color: "#2f3e30" }}
+      <section
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          padding: "32px",
+          boxSizing: "border-box",
+          backgroundColor: "#fff",
+          border: "1px solid #e5e2dc",
+          borderRadius: "12px",
+          boxShadow: "0 12px 36px rgba(47, 62, 48, 0.08)",
+        }}
       >
-        📖 Đăng Nhập An Nhiên
-      </h2>
+        <Link to="/" style={{ color: "#526b55", textDecoration: "none" }}>
+          ← Về trang chủ
+        </Link>
+        <h1 style={{ color: "#2f3e30", margin: "24px 0 8px" }}>Đăng nhập</h1>
+        <p style={{ color: "#68736a", margin: "0 0 24px" }}>
+          Đăng nhập tài khoản Tiệm Sách An Nhiên của bạn.
+        </p>
 
-      {error && (
-        <div
-          style={{
-            padding: "10px",
-            marginBottom: "15px",
-            backgroundColor: "#ffe6e6",
-            color: "#cc0000",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "15px" }}>
-          <label
+        {error && (
+          <div
+            role="alert"
             style={{
-              display: "block",
-              marginBottom: "6px",
-              fontWeight: "bold",
+              padding: "12px",
+              marginBottom: "18px",
+              color: "#9b1c1c",
+              backgroundColor: "#fff0f0",
+              borderRadius: "6px",
             }}
           >
-            Email:
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <label
+            htmlFor="email"
+            style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}
+          >
+            Email
           </label>
           <input
+            id="email"
+            name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="customer01@example.com"
+            autoComplete="email"
             required
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="ban@example.com"
             style={{
               width: "100%",
-              padding: "10px",
               boxSizing: "border-box",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
+              padding: "12px",
+              marginBottom: "18px",
+              border: "1px solid #cbd2cb",
+              borderRadius: "6px",
             }}
           />
-        </div>
 
-        <div style={{ marginBottom: "20px" }}>
           <label
-            style={{
-              display: "block",
-              marginBottom: "6px",
-              fontWeight: "bold",
-            }}
+            htmlFor="password"
+            style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}
           >
-            Mật khẩu:
+            Mật khẩu
           </label>
           <input
+            id="password"
+            name="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Demo@123"
+            autoComplete="current-password"
             required
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Nhập mật khẩu"
             style={{
               width: "100%",
-              padding: "10px",
               boxSizing: "border-box",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
+              padding: "12px",
+              marginBottom: "22px",
+              border: "1px solid #cbd2cb",
+              borderRadius: "6px",
             }}
           />
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "10px",
-            backgroundColor: loading ? "#999" : "#3b4d3c",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "16px",
-            cursor: loading ? "not-allowed" : "pointer",
-            marginBottom: "15px",
-            fontWeight: "600",
-          }}
-        >
-          {loading ? "Đang xử lý..." : "Đăng Nhập"}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "12px",
+              color: "#fff",
+              backgroundColor: loading ? "#89968b" : "#3b4d3c",
+              border: "none",
+              borderRadius: "6px",
+              cursor: loading ? "wait" : "pointer",
+              fontSize: "16px",
+              fontWeight: 600,
+            }}
+          >
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+          </button>
+        </form>
 
-      <div style={{ textAlign: "center", fontSize: "14px" }}>
-        Chưa có tài khoản?{" "}
-        <button
-          type="button"
-          onClick={onSwitchToRegister}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#3b4d3c",
-            cursor: "pointer",
-            textDecoration: "underline",
-            padding: 0,
-            fontSize: "14px",
-            fontWeight: "600",
-          }}
+        <p
+          style={{ margin: "22px 0 0", textAlign: "center", color: "#68736a" }}
         >
-          Đăng ký ngay
-        </button>
-      </div>
-    </div>
+          Chưa có tài khoản?{" "}
+          <Link to="/register" style={{ color: "#3b4d3c", fontWeight: 600 }}>
+            Đăng ký
+          </Link>
+        </p>
+      </section>
+    </main>
   );
 };
 
