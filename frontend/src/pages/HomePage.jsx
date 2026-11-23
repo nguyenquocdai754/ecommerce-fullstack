@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
 import "./HomePage.css";
 
-const API = "http://localhost:3000/api";
 const CART_KEY = "an-nhien-cart";
 const readCart = () => {
   try {
@@ -29,9 +29,11 @@ const readAuth = () => {
         user?.username ||
         sessionStorage.getItem("username") ||
         "Độc giả",
+      role: user?.role || "",
+      userId: user?.id || null,
     };
   } catch {
-    return { loggedIn: Boolean(token), name: "Độc giả" };
+    return { loggedIn: Boolean(token), name: "Độc giả", role: "" };
   }
 };
 const money = (value) => `${Number(value || 0).toLocaleString("vi-VN")} đ`;
@@ -46,22 +48,30 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("featured");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [detail, setDetail] = useState(null);
+  const [selectedDetailImage, setSelectedDetailImage] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState({ count: 0, average: 0 });
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, title: "", comment: "" });
+  const [myReview, setMyReview] = useState(null);
+  const [reviewError, setReviewError] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     try {
       const [bookRes, categoryRes] = await Promise.all([
-        fetch(`${API}/products`),
-        fetch(`${API}/categories`),
+        api.get("/products"),
+        api.get("/categories"),
       ]);
-      if (!bookRes.ok)
-        throw new Error("Không tải được sách. Hãy kiểm tra backend.");
-      const bookData = await bookRes.json();
-      const categoryData = categoryRes.ok ? await categoryRes.json() : null;
+      const bookData = bookRes.data;
+      const categoryData = categoryRes.data;
       if (!bookData.success || !Array.isArray(bookData.data))
         throw new Error(bookData.message || "Dữ liệu sách không hợp lệ.");
       setProducts(bookData.data);
@@ -78,7 +88,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    window.setTimeout(load, 0);
+    const timer = window.setTimeout(() => { load(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
@@ -98,16 +109,51 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (!detail) return undefined;
+    let active = true;
+    const ownReviewRequest = auth.loggedIn && auth.role === "CUSTOMER"
+      ? api.get(`/reviews/mine?bookId=${detail.id}`)
+      : Promise.resolve({ data: { data: null } });
+    Promise.all([api.get(`/products/${detail.id}/reviews`), ownReviewRequest]).then(([publicResult, ownResult]) => {
+      if (active) {
+        setReviews(publicResult.data.data || []);
+        setReviewSummary(publicResult.data.summary || { count: 0, average: 0 });
+        setMyReview(ownResult.data.data || null);
+        if (ownResult.data.data) setReviewDraft({ rating: ownResult.data.data.rating, title: ownResult.data.data.title || "", comment: ownResult.data.data.comment || "" });
+        else setReviewDraft({ rating: 5, title: "", comment: "" });
+      }
+    }).catch(() => { if (active) { setReviews([]); setMyReview(null); } });
+    return () => { active = false; };
+  }, [detail, auth.loggedIn, auth.role, auth.userId]);
+
+  const detailId = detail?.id;
+  useEffect(() => {
+    if (!detailId) return undefined;
+    let active = true;
+    api.get(`/products/${detailId}`).then(({ data }) => {
+      if (active) setDetail((current) => current?.id === detailId ? { ...current, ...data.data } : current);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [detailId]);
+
   const visible = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("vi");
     const items = products.filter((p) => {
       const matchesCategory =
         category === "all" || String(p.category_id) === category;
+      const price = Number(p.sale_price);
+      const matchesPrice =
+        (!minPrice || price >= Number(minPrice)) &&
+        (!maxPrice || price <= Number(maxPrice));
+      const matchesStock = !inStockOnly || Number(p.stock_quantity) > 0;
       const text = [p.name, p.author, p.category_name, p.short_description]
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase("vi");
-      return matchesCategory && (!term || text.includes(term));
+      return (
+        matchesCategory && matchesPrice && matchesStock && (!term || text.includes(term))
+      );
     });
     return items.sort((a, b) => {
       if (sort === "price-up")
@@ -116,15 +162,19 @@ export default function HomePage() {
         return Number(b.sale_price) - Number(a.sale_price);
       if (sort === "name")
         return String(a.name).localeCompare(String(b.name), "vi");
+      if (sort === "name-desc")
+        return String(b.name).localeCompare(String(a.name), "vi");
+      if (sort === "newest") return Number(b.id) - Number(a.id);
       return Number(a.id) - Number(b.id);
     });
-  }, [products, query, category, sort]);
+  }, [products, query, category, sort, minPrice, maxPrice, inStockOnly]);
 
   const count = cart.reduce((n, item) => n + item.quantity, 0);
   const total = cart.reduce(
     (n, item) => n + item.sale_price * item.quantity,
     0,
   );
+  const detailImages = detail ? [...new Set([detail.thumbnail, ...(detail.images || []).map((image) => image.image_url)].filter(Boolean))] : [];
   const search = (event) => {
     event.preventDefault();
     setQuery(queryInput);
@@ -132,7 +182,13 @@ export default function HomePage() {
       .getElementById("catalogue")
       ?.scrollIntoView({ behavior: "smooth" });
   };
+  const openDetail = (product) => { setSelectedDetailImage(product.thumbnail || ""); setDetail(product); };
   const add = (product) => {
+    if (!auth.loggedIn) {
+      setNotice("Đăng nhập để thêm sách vào giỏ hàng.");
+      navigate("/login", { state: { from: "/" } });
+      return;
+    }
     const id = String(product.id);
     const stock = Number(product.stock_quantity);
     if (stock <= 0) {
@@ -182,13 +238,57 @@ export default function HomePage() {
         )
         .filter((item) => item.quantity > 0),
     );
+  const buyNow = (product) => {
+    if (!auth.loggedIn) { setNotice("Đăng nhập để mua hàng."); navigate("/login", { state: { from: "/checkout" } }); return; }
+    const id = String(product.id);
+    const stock = Number(product.stock_quantity);
+    if (stock <= 0) { setNotice("Sách này hiện đã hết hàng."); return; }
+    const existing = cart.find((item) => String(item.id) === id);
+    const next = existing
+      ? cart.map((item) => String(item.id) === id ? { ...item, quantity: Math.min(stock, item.quantity + 1), sale_price: product.sale_price, stock_quantity: stock } : item)
+      : [...cart, { id, name: product.name, author: product.author || "", thumbnail: product.thumbnail || "", sale_price: Number(product.sale_price), stock_quantity: stock, quantity: 1 }];
+    localStorage.setItem(CART_KEY, JSON.stringify(next)); setCart(next); navigate("/checkout");
+  };
   const logout = () => {
     sessionStorage.clear();
     ["token", "user", "username", "expiresAt"].forEach((key) =>
       localStorage.removeItem(key),
     );
-    setAuth({ loggedIn: false, name: "" });
+    setAuth({ loggedIn: false, name: "", role: "" });
+    setCart([]);
     setNotice("Bạn đã đăng xuất.");
+  };
+  const submitReview = async (event) => {
+    event.preventDefault();
+    setReviewError("");
+    try {
+      if (myReview) await api.put(`/reviews/${myReview.id}`, reviewDraft);
+      else await api.post(`/products/${detail.id}/reviews`, reviewDraft);
+      const [publicResult, ownResult] = await Promise.all([api.get(`/products/${detail.id}/reviews`), api.get(`/reviews/mine?bookId=${detail.id}`)]);
+      setReviews(publicResult.data.data || []); setReviewSummary(publicResult.data.summary || { count: 0, average: 0 }); setMyReview(ownResult.data.data || null);
+      setNotice(myReview ? "Đã cập nhật đánh giá." : "Đã gửi đánh giá của bạn.");
+    } catch (error) {
+      setReviewError(error.response?.data?.message || "Chưa gửi được đánh giá.");
+    }
+  };
+  const editReview = async (review) => {
+    const comment = window.prompt("Chỉnh sửa nhận xét:", review.comment);
+    if (comment === null || !comment.trim()) return;
+    const ratingValue = window.prompt("Số sao từ 1 đến 5:", String(review.rating));
+    if (ratingValue === null) return;
+    try {
+      await api.put(`/reviews/${review.id}`, { rating: Number(ratingValue), title: review.title || "", comment });
+      const [publicResult, ownResult] = await Promise.all([api.get(`/products/${detail.id}/reviews`), api.get(`/reviews/mine?bookId=${detail.id}`)]);
+      setReviews(publicResult.data.data || []); setReviewSummary(publicResult.data.summary || { count: 0, average: 0 }); setMyReview(ownResult.data.data || null);
+    } catch (error) { setReviewError(error.response?.data?.message || "Chưa sửa được đánh giá."); }
+  };
+  const deleteReview = async (review) => {
+    if (!window.confirm("Xóa đánh giá này?")) return;
+    try {
+      await api.delete(`/reviews/${review.id}`);
+      const [publicResult, ownResult] = await Promise.all([api.get(`/products/${detail.id}/reviews`), api.get(`/reviews/mine?bookId=${detail.id}`)]);
+      setReviews(publicResult.data.data || []); setReviewSummary(publicResult.data.summary || { count: 0, average: 0 }); setMyReview(ownResult.data.data || null);
+    } catch (error) { setReviewError(error.response?.data?.message || "Chưa xóa được đánh giá."); }
   };
 
   return (
@@ -196,7 +296,7 @@ export default function HomePage() {
       <div className="announcement">
         <div className="store-container announcement-inner">
           <span>Gửi trao tri thức, nuôi dưỡng tâm hồn</span>
-          <span>Miễn phí vận chuyển từ 150.000đ</span>
+          <span>Đóng gói cẩn thận · Giao sách toàn quốc</span>
         </div>
       </div>
       <header className="site-header">
@@ -236,6 +336,8 @@ export default function HomePage() {
             {auth.loggedIn ? (
               <div className="account-links">
                 <span>Xin chào, {auth.name}</span>
+                {auth.role === "CUSTOMER" && <><Link to="/profile">Tài khoản</Link><Link to="/orders">Đơn hàng</Link></>}
+                {["MANAGER", "ADMIN"].includes(auth.role) && <Link to="/management">Quản lý</Link>}
                 <button className="link-button" type="button" onClick={logout}>
                   Đăng xuất
                 </button>
@@ -340,11 +442,18 @@ export default function HomePage() {
               Sắp xếp{" "}
               <select value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="featured">Nổi bật</option>
+                <option value="newest">Mới nhất</option>
                 <option value="name">Tên A – Z</option>
+                <option value="name-desc">Tên Z – A</option>
                 <option value="price-up">Giá thấp đến cao</option>
                 <option value="price-down">Giá cao đến thấp</option>
               </select>
             </label>
+          </div>
+          <div className="catalogue-filters" aria-label="Bộ lọc sản phẩm">
+            <label>Giá từ<input type="number" min="0" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="0 đ" /></label>
+            <label>Đến<input type="number" min="0" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="Không giới hạn" /></label>
+            <label className="stock-filter"><input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} /> Chỉ còn hàng</label>
           </div>
           <div
             className="category-row"
@@ -423,14 +532,14 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="product-grid">
-              {visible.map((p) => {
+              {visible.slice(0, showAll ? visible.length : 12).map((p) => {
                 const out = Number(p.stock_quantity) <= 0;
                 return (
                   <article className="product-card" key={p.id}>
                     <button
                       className="product-image"
                       type="button"
-                      onClick={() => setDetail(p)}
+                      onClick={() => openDetail(p)}
                       aria-label={`Xem ${p.name}`}
                     >
                       {p.thumbnail ? (
@@ -456,11 +565,12 @@ export default function HomePage() {
                       <button
                         className="product-title"
                         type="button"
-                        onClick={() => setDetail(p)}
+                        onClick={() => openDetail(p)}
                       >
                         {p.name}
                       </button>
                       <p>{p.author || "An Nhiên tuyển chọn"}</p>
+                      {p.review_count > 0 && <small className="product-rating">★ {Number(p.average_rating).toFixed(1)} · {p.review_count} đánh giá</small>}
                       <div className="product-bottom">
                         <strong>{money(p.sale_price)}</strong>
                         <button
@@ -476,6 +586,11 @@ export default function HomePage() {
                 );
               })}
             </div>
+          )}
+          {!loading && !loadError && visible.length > 12 && (
+            <button className="outline-button load-more" type="button" onClick={() => setShowAll((value) => !value)}>
+              {showAll ? "Thu gọn danh sách" : `Xem thêm ${visible.length - 12} tựa sách`}
+            </button>
           )}
         </section>
         <section className="about-strip" id="about">
@@ -623,6 +738,15 @@ export default function HomePage() {
                       Đăng nhập để tiếp tục
                     </button>
                   )}
+                  {auth.loggedIn && (
+                    <button
+                      className="checkout-button"
+                      type="button"
+                      onClick={() => navigate("/checkout")}
+                    >
+                      Tiến hành đặt hàng
+                    </button>
+                  )}
                   <button
                     className="continue-button"
                     type="button"
@@ -654,13 +778,7 @@ export default function HomePage() {
             >
               ×
             </button>
-            <div className="modal-cover">
-              {detail.thumbnail ? (
-                <img src={detail.thumbnail} alt={detail.name} />
-              ) : (
-                "📖"
-              )}
-            </div>
+            <div className="product-gallery"><div className="modal-cover">{selectedDetailImage || detail.thumbnail ? <img src={selectedDetailImage || detail.thumbnail} alt={detail.name} /> : "📖"}</div>{detailImages.length > 1 && <div className="gallery-thumbnails" aria-label="Bộ sưu tập hình ảnh">{detailImages.map((imageUrl) => <button type="button" key={imageUrl} className={imageUrl === (selectedDetailImage || detail.thumbnail) ? "active" : ""} onClick={() => setSelectedDetailImage(imageUrl)} aria-label={`Xem ảnh ${detailImages.indexOf(imageUrl) + 1}`}><img src={imageUrl} alt="" /></button>)}</div>}</div>
             <div className="modal-copy">
               <span className="eyebrow">
                 {detail.category_name || "SÁCH TUYỂN CHỌN"}
@@ -676,6 +794,10 @@ export default function HomePage() {
                 {detail.short_description ||
                   "Một tựa sách được An Nhiên tuyển chọn dành cho bạn đọc yêu tri thức."}
               </p>
+              <p className="product-sold-count">Đã bán {detail.sold_count || 0} cuốn</p>
+              <div className="review-summary"><strong>★ {Number(reviewSummary.average).toFixed(1)}</strong><span>{reviewSummary.count} đánh giá</span></div>
+              <div className="review-list">{reviews.length ? reviews.map((review) => <article key={review.id}><div><strong>{review.full_name}</strong><span>★ {review.rating} · {new Date(review.created_at).toLocaleDateString("vi-VN")}</span></div>{review.title && <b>{review.title}</b>}<p>{review.comment}</p>{auth.loggedIn && Number(auth.userId) === Number(review.user_id) && <div className="review-actions"><button type="button" onClick={() => editReview(review)}>Sửa</button><button type="button" onClick={() => deleteReview(review)}>Xóa</button></div>}</article>) : <small>Chưa có đánh giá cho sách này.</small>}</div>
+              {auth.loggedIn && auth.role === "CUSTOMER" && <form className="review-form" onSubmit={submitReview}><strong>{myReview ? "Chỉnh sửa đánh giá của bạn" : "Đánh giá sau khi nhận sách"}</strong><label>Số sao<select value={reviewDraft.rating} onChange={(e) => setReviewDraft({ ...reviewDraft, rating: Number(e.target.value) })}><option value={5}>5 sao</option><option value={4}>4 sao</option><option value={3}>3 sao</option><option value={2}>2 sao</option><option value={1}>1 sao</option></select></label><input maxLength="160" placeholder="Tiêu đề (không bắt buộc)" value={reviewDraft.title} onChange={(e) => setReviewDraft({ ...reviewDraft, title: e.target.value })} /><textarea required maxLength="3000" placeholder="Chia sẻ cảm nhận của bạn" value={reviewDraft.comment} onChange={(e) => setReviewDraft({ ...reviewDraft, comment: e.target.value })} />{reviewError && <small className="form-error">{reviewError}</small>}<button className="outline-button">{myReview ? "Cập nhật đánh giá" : "Gửi đánh giá"}</button>{myReview?.status === "HIDDEN" && <small>Đánh giá đang được ẩn; bạn vẫn có thể chỉnh sửa hoặc xóa.</small>}</form>}
               <small>
                 {Number(detail.stock_quantity) > 0
                   ? `Còn ${detail.stock_quantity} cuốn`
@@ -689,6 +811,8 @@ export default function HomePage() {
               >
                 Thêm vào giỏ hàng
               </button>
+              {auth.loggedIn && auth.role === "CUSTOMER" && Number(detail.stock_quantity) > 0 && <button className="outline-button buy-now-button" type="button" onClick={() => buyNow(detail)}>Mua ngay</button>}
+              {products.some((product) => Number(product.id) !== Number(detail.id) && Number(product.category_id) === Number(detail.category_id)) && <div className="related-products"><h3>Sách cùng danh mục</h3>{products.filter((product) => Number(product.id) !== Number(detail.id) && Number(product.category_id) === Number(detail.category_id)).slice(0, 4).map((product) => <button type="button" key={product.id} onClick={() => openDetail(product)}>{product.name} · {money(product.sale_price)}</button>)}</div>}
             </div>
           </section>
         </div>

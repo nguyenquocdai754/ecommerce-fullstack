@@ -69,7 +69,7 @@ const seed = async () => {
                 `INSERT INTO users
                 (role_id, full_name, email, phone, password_hash, status)
                 VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
-                [roleId, account.name, account.email,
+                [roleId, account.fullname, account.email,
                     account.phone, passwordHash]
             );
             inserted += 1;

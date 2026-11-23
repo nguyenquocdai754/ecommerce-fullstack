@@ -1,0 +1,61 @@
+-- Run once on the existing ecommerce database before starting the updated API.
+INSERT IGNORE INTO roles (name, description) VALUES
+  ('CUSTOMER', 'Khách hàng'),
+  ('MANAGER', 'Nhân viên quản lý'),
+  ('ADMIN', 'Quản trị viên');
+
+ALTER TABLE orders MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'PENDING';
+ALTER TABLE orders
+  ADD COLUMN recipient_name VARCHAR(120) NULL,
+  ADD COLUMN recipient_phone VARCHAR(20) NULL,
+  ADD COLUMN note TEXT NULL,
+  ADD COLUMN payment_method VARCHAR(20) NOT NULL DEFAULT 'COD',
+  ADD COLUMN payment_status VARCHAR(20) NOT NULL DEFAULT 'UNPAID',
+  ADD COLUMN cancel_reason VARCHAR(500) NULL;
+
+CREATE TABLE IF NOT EXISTS order_status_histories (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  note VARCHAR(500) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  INDEX (order_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  method VARCHAR(20) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  transaction_code VARCHAR(100) NULL,
+  paid_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  INDEX (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE reviews
+  ADD COLUMN title VARCHAR(160) NULL,
+  ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE',
+  ADD COLUMN updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE books ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+ALTER TABLE categories ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+CREATE UNIQUE INDEX uq_reviews_user_book ON reviews(user_id, book_id);
+
+CREATE TABLE IF NOT EXISTS addresses (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  recipient_name VARCHAR(120) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  address TEXT NOT NULL,
+  note VARCHAR(500) NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

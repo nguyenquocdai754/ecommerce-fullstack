@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { registerUser } from "../services/authService";
 
-const RegisterPage = ({ onSwitchToLogin }) => {
+const RegisterPage = () => {
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -55,6 +56,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
         fontFamily: "sans-serif",
       }}
     >
+      <Link to="/" style={{ color: "#526b55", textDecoration: "none" }}>← Về trang chủ</Link>
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
         Đăng Ký Tài Khoản
       </h2>
@@ -219,21 +221,9 @@ const RegisterPage = ({ onSwitchToLogin }) => {
 
       <div style={{ textAlign: "center", fontSize: "14px" }}>
         Đã có tài khoản?{" "}
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#007bff",
-            cursor: "pointer",
-            textDecoration: "underline",
-            padding: 0,
-            fontSize: "14px",
-          }}
-        >
+        <Link to="/login" style={{ color: "#3b4d3c", fontWeight: 600 }}>
           Đăng nhập ngay
-        </button>
+        </Link>
       </div>
     </div>
   );

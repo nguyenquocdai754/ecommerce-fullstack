@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/authService";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ const LoginPage = () => {
       );
       sessionStorage.setItem("user", JSON.stringify(user));
       sessionStorage.setItem("username", username);
-      navigate("/");
+      const roleHome = user.role === "ADMIN" || user.role === "MANAGER" ? "/management" : "/";
+      navigate(location.state?.from || roleHome, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
