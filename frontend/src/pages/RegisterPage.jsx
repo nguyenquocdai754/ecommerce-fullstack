@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { registerUser } from "../services/authService";
 
-const RegisterPage = ({ onSwitchToLogin }) => {
+const RegisterPage = () => {
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     phone: "",
   });
   const [error, setError] = useState("");
@@ -20,6 +22,18 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    if (!/^\+?[0-9]{10,15}$/.test(formData.phone.trim())) {
+      setError("Số điện thoại phải có từ 10 đến 15 chữ số.");
+      return;
+    }
+    if (formData.password.length < 8 || new TextEncoder().encode(formData.password).length > 72) {
+      setError("Mật khẩu cần ít nhất 8 ký tự và tối đa 72 byte.");
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -33,7 +47,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
       setSuccess(
         "Đăng ký tài khoản thành công! Bạn có thể chuyển sang đăng nhập.",
       );
-      setFormData({ full_name: "", email: "", password: "", phone: "" });
+      setFormData({ full_name: "", email: "", password: "", confirmPassword: "", phone: "" });
     } catch (err) {
       const message =
         err.response?.data?.message ||
@@ -55,6 +69,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
         fontFamily: "sans-serif",
       }}
     >
+      <Link to="/" style={{ color: "#526b55", textDecoration: "none" }}>← Về trang chủ</Link>
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
         Đăng Ký Tài Khoản
       </h2>
@@ -106,6 +121,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
             value={formData.full_name}
             onChange={handleChange}
             placeholder="Nguyễn Văn A"
+            maxLength={100}
             required
             style={{
               width: "100%",
@@ -133,6 +149,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
             value={formData.email}
             onChange={handleChange}
             placeholder="example@gmail.com"
+            maxLength={255}
             required
             style={{
               width: "100%",
@@ -160,6 +177,8 @@ const RegisterPage = ({ onSwitchToLogin }) => {
             value={formData.password}
             onChange={handleChange}
             placeholder="Ít nhất 8 ký tự"
+            minLength={8}
+            maxLength={72}
             required
             style={{
               width: "100%",
@@ -168,6 +187,24 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               borderRadius: "4px",
               border: "1px solid #ccc",
             }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>
+            Xác nhận mật khẩu:
+          </label>
+          <input
+            type="password"
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            placeholder="Nhập lại mật khẩu"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            maxLength={72}
+            style={{ width: "100%", padding: "10px", boxSizing: "border-box", borderRadius: "4px", border: "1px solid #ccc" }}
           />
         </div>
 
@@ -184,9 +221,11 @@ const RegisterPage = ({ onSwitchToLogin }) => {
           <input
             type="text"
             name="phone"
+            inputMode="tel"
+            pattern="\+?[0-9]{10,15}"
             value={formData.phone}
             onChange={handleChange}
-            placeholder="0912345678"
+            placeholder="0912345678 (10 số)"
             required
             style={{
               width: "100%",
@@ -196,6 +235,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               border: "1px solid #ccc",
             }}
           />
+          <small style={{ display: "block", color: "#68736a", marginTop: "5px" }}>Nhập 10–15 chữ số, ví dụ: 0912345678.</small>
         </div>
 
         <button
@@ -219,21 +259,9 @@ const RegisterPage = ({ onSwitchToLogin }) => {
 
       <div style={{ textAlign: "center", fontSize: "14px" }}>
         Đã có tài khoản?{" "}
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#007bff",
-            cursor: "pointer",
-            textDecoration: "underline",
-            padding: 0,
-            fontSize: "14px",
-          }}
-        >
+        <Link to="/login" style={{ color: "#3b4d3c", fontWeight: 600 }}>
           Đăng nhập ngay
-        </button>
+        </Link>
       </div>
     </div>
   );

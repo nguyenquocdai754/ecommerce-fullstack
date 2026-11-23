@@ -16,7 +16,8 @@ const validRegister = (b) =>
     validPhone(b.phone) && validPassword(b.password);
 const validLogin = (b) => onlyKeys(b, ["email", "password"]) &&
     validEmail(b.email) && validPassword(b.password);
-const validProfile = (b) => onlyKeys(b, ["full_name", "phone"]) &&
+const validProfile = (b) => onlyKeys(b, ["full_name", "phone", "avatar"]) &&
     validName(b.full_name) &&
-    (b.phone === null || validPhone(b.phone));
+    (b.phone === null || validPhone(b.phone)) &&
+    (b.avatar === undefined || b.avatar === null || (typeof b.avatar === "string" && b.avatar.length <= 255 && (!b.avatar || /^(https?:\/\/|\/)/i.test(b.avatar))));
 module.exports = { validRegister, validLogin, validProfile };
