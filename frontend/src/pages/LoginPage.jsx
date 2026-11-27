@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/authService";
+import PasswordInput from "../components/PasswordInput";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -126,10 +127,9 @@ const LoginPage = () => {
           >
             Mật khẩu
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             value={formData.password}
@@ -139,10 +139,11 @@ const LoginPage = () => {
               width: "100%",
               boxSizing: "border-box",
               padding: "12px",
-              marginBottom: "22px",
+              marginBottom: 0,
               border: "1px solid #cbd2cb",
               borderRadius: "6px",
             }}
+            wrapperStyle={{ marginBottom: 22 }}
           />
 
           <button

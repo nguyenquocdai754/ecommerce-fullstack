@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { registerUser } from "../services/authService";
+import PasswordInput from "../components/PasswordInput";
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -171,8 +172,7 @@ const RegisterPage = () => {
           >
             Mật khẩu:
           </label>
-          <input
-            type="password"
+          <PasswordInput
             name="password"
             value={formData.password}
             onChange={handleChange}
@@ -194,8 +194,7 @@ const RegisterPage = () => {
           <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>
             Xác nhận mật khẩu:
           </label>
-          <input
-            type="password"
+          <PasswordInput
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}

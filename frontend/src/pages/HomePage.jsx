@@ -46,6 +46,7 @@ export default function HomePage() {
   const [auth, setAuth] = useState(readAuth);
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("featured");
   const [minPrice, setMinPrice] = useState("");
@@ -169,6 +170,18 @@ export default function HomePage() {
     });
   }, [products, query, category, sort, minPrice, maxPrice, inStockOnly]);
 
+  const searchSuggestions = useMemo(() => {
+    const term = queryInput.trim().toLocaleLowerCase("vi");
+    if (!term) return [];
+    return products.filter((product) =>
+      [product.name, product.author, product.category_name]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("vi")
+        .includes(term),
+    ).slice(0, 6);
+  }, [products, queryInput]);
+
   const count = cart.reduce((n, item) => n + item.quantity, 0);
   const total = cart.reduce(
     (n, item) => n + item.sale_price * item.quantity,
@@ -177,6 +190,7 @@ export default function HomePage() {
   const detailImages = detail ? [...new Set([detail.thumbnail, ...(detail.images || []).map((image) => image.image_url)].filter(Boolean))] : [];
   const search = (event) => {
     event.preventDefault();
+    setShowSearchSuggestions(false);
     setQuery(queryInput);
     document
       .getElementById("catalogue")
@@ -311,9 +325,15 @@ export default function HomePage() {
           <form className="search-form" onSubmit={search} role="search">
             <input
               aria-label="Tìm sách"
+              aria-autocomplete="list"
+              aria-expanded={showSearchSuggestions && Boolean(queryInput.trim())}
+              aria-controls="book-search-suggestions"
               placeholder="Tìm theo tên sách, tác giả, thể loại..."
               value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
+              onFocus={() => setShowSearchSuggestions(true)}
+              onBlur={() => window.setTimeout(() => setShowSearchSuggestions(false), 140)}
+              onChange={(e) => { setQueryInput(e.target.value); setShowSearchSuggestions(true); }}
+              onKeyDown={(e) => { if (e.key === "Escape") setShowSearchSuggestions(false); }}
             />
             {queryInput && (
               <button
@@ -322,6 +342,7 @@ export default function HomePage() {
                 onClick={() => {
                   setQueryInput("");
                   setQuery("");
+                  setShowSearchSuggestions(false);
                 }}
                 aria-label="Xóa tìm kiếm"
               >
@@ -331,14 +352,43 @@ export default function HomePage() {
             <button className="search-submit" type="submit">
               Tìm sách
             </button>
+            {showSearchSuggestions && queryInput.trim() && (
+              <div className="search-suggestions" id="book-search-suggestions">
+                {searchSuggestions.length ? (
+                  <>
+                    <span className="search-suggestions-heading">Gợi ý sách</span>
+                    {searchSuggestions.map((product) => (
+                      <button
+                        className="search-suggestion"
+                        key={product.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setShowSearchSuggestions(false); openDetail(product); }}
+                      >
+                        {product.thumbnail ? <img src={product.thumbnail} alt="" /> : <span className="search-suggestion-placeholder" aria-hidden="true">📚</span>}
+                        <span className="search-suggestion-info">
+                          <strong>{product.name}</strong>
+                          <small>{product.author || product.category_name || "Sách An Nhiên"}</small>
+                        </span>
+                        <b className="search-suggestion-price">{money(product.sale_price)}</b>
+                      </button>
+                    ))}
+                  </>
+                ) : <p className="search-suggestions-empty">Chưa tìm thấy sách phù hợp.</p>}
+              </div>
+            )}
           </form>
           <div className="header-actions">
             {auth.loggedIn ? (
               <div className="account-links">
-                <span>Xin chào, {auth.name}</span>
-                {auth.role === "CUSTOMER" && <><Link to="/profile">Tài khoản</Link><Link to="/orders">Đơn hàng</Link></>}
-                {["MANAGER", "ADMIN"].includes(auth.role) && <Link to="/management">Quản lý</Link>}
+                <span className="account-greeting">
+                  <span className="account-avatar" aria-hidden="true">{auth.name?.trim()?.charAt(0)?.toUpperCase() || "A"}</span>
+                  <span className="account-greeting-copy"><small>Xin chào</small><strong>{auth.name}</strong></span>
+                </span>
+                {auth.role === "CUSTOMER" && <><Link className="account-action" to="/profile">Tài khoản</Link><Link className="account-action" to="/orders">Đơn hàng</Link></>}
+                {["MANAGER", "ADMIN"].includes(auth.role) && <Link className="account-action" to="/management"><span aria-hidden="true">▦</span> Quản lý</Link>}
                 <button className="link-button" type="button" onClick={logout}>
+                  <span aria-hidden="true">↪</span>
                   Đăng xuất
                 </button>
               </div>
